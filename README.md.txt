@@ -138,6 +138,8 @@ The SQL analysis was performed using MySQL to answer business questions across s
 
 ## Power BI Dashboard
 
+![Power BI Dashboard](screenshots/dashboard.png)
+
 The Power BI dashboard provides an interactive overview of e-commerce business performance.
 
 ### Key Performance Indicators
