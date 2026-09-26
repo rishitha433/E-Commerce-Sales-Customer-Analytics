@@ -1,0 +1,333 @@
+-- =========================================================
+-- E-COMMERCE SALES, CUSTOMER & PRODUCT ANALYTICS
+-- Database: ecommerce_analytics
+-- Tool: MySQL
+-- =========================================================
+
+
+-- =========================================================
+-- 1. KPI VALIDATION
+-- =========================================================
+
+SELECT
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    COUNT(DISTINCT `Order ID`) AS total_orders,
+    SUM(Quantity) AS total_quantity,
+    SUM(Sales) / COUNT(DISTINCT `Order ID`) AS AOV
+FROM orders;
+
+
+-- =========================================================
+-- 2. MONTHLY SALES
+-- =========================================================
+
+SELECT
+    YEAR(`Order Date`) AS order_year,
+    MONTH(`Order Date`) AS order_month,
+    SUM(Sales) AS total_sales
+FROM orders
+GROUP BY YEAR(`Order Date`), MONTH(`Order Date`)
+ORDER BY order_year, order_month;
+
+
+-- =========================================================
+-- 3. HIGHEST SALES MONTH
+-- =========================================================
+
+WITH monthly_sales AS (
+    SELECT
+        YEAR(`Order Date`) AS order_year,
+        MONTH(`Order Date`) AS order_month,
+        SUM(Sales) AS total_sales
+    FROM orders
+    GROUP BY YEAR(`Order Date`), MONTH(`Order Date`)
+)
+SELECT *
+FROM monthly_sales
+ORDER BY total_sales DESC
+LIMIT 1;
+
+
+-- =========================================================
+-- 4. LOWEST SALES MONTH
+-- =========================================================
+
+WITH monthly_sales AS (
+    SELECT
+        YEAR(`Order Date`) AS order_year,
+        MONTH(`Order Date`) AS order_month,
+        SUM(Sales) AS total_sales
+    FROM orders
+    GROUP BY YEAR(`Order Date`), MONTH(`Order Date`)
+)
+SELECT *
+FROM monthly_sales
+ORDER BY total_sales ASC
+LIMIT 1;
+
+
+-- =========================================================
+-- 5. CATEGORY PERFORMANCE
+-- =========================================================
+
+SELECT
+    Category,
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    SUM(Quantity) AS total_quantity
+FROM orders
+GROUP BY Category
+ORDER BY total_sales DESC;
+
+
+-- =========================================================
+-- 6. SUB-CATEGORY PERFORMANCE
+-- =========================================================
+
+SELECT
+    `Sub-Category`,
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    SUM(Quantity) AS total_quantity
+FROM orders
+GROUP BY `Sub-Category`
+ORDER BY total_sales DESC;
+
+
+-- =========================================================
+-- 7. REGIONAL PERFORMANCE
+-- =========================================================
+
+SELECT
+    Region,
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    SUM(Quantity) AS total_quantity
+FROM orders
+GROUP BY Region
+ORDER BY total_sales DESC;
+
+
+-- =========================================================
+-- 8. TOP CUSTOMERS BY SALES
+-- =========================================================
+
+SELECT
+    `Customer ID`,
+    `Customer Name`,
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    SUM(Quantity) AS total_quantity
+FROM orders
+GROUP BY `Customer ID`, `Customer Name`
+ORDER BY total_sales DESC
+LIMIT 10;
+
+
+-- =========================================================
+-- 9. REPEAT CUSTOMERS
+-- =========================================================
+
+SELECT
+    `Customer ID`,
+    `Customer Name`,
+    COUNT(DISTINCT `Order ID`) AS order_count
+FROM orders
+GROUP BY `Customer ID`, `Customer Name`
+HAVING COUNT(DISTINCT `Order ID`) > 1
+ORDER BY order_count DESC;
+
+
+-- =========================================================
+-- 10. CUSTOMER PURCHASE FREQUENCY
+-- =========================================================
+
+SELECT
+    `Customer ID`,
+    `Customer Name`,
+    COUNT(DISTINCT `Order ID`) AS purchase_frequency
+FROM orders
+GROUP BY `Customer ID`, `Customer Name`
+ORDER BY purchase_frequency DESC;
+
+
+-- =========================================================
+-- 11. REGIONAL AOV
+-- =========================================================
+
+SELECT
+    Region,
+    SUM(Sales) / COUNT(DISTINCT `Order ID`) AS AOV
+FROM orders
+GROUP BY Region
+ORDER BY AOV DESC;
+
+
+-- =========================================================
+-- 12. TOP 10 PRODUCTS BY SALES
+-- =========================================================
+
+SELECT
+    `Product ID`,
+    `Product Name`,
+    SUM(Sales) AS total_sales,
+    SUM(Profit) AS total_profit,
+    SUM(Quantity) AS total_quantity
+FROM orders
+GROUP BY `Product ID`, `Product Name`
+ORDER BY total_sales DESC
+LIMIT 10;
+
+
+-- =========================================================
+-- 13. MOST PROFITABLE PRODUCTS
+-- =========================================================
+
+SELECT
+    `Product ID`,
+    `Product Name`,
+    SUM(Profit) AS total_profit,
+    SUM(Sales) AS total_sales
+FROM orders
+GROUP BY `Product ID`, `Product Name`
+ORDER BY total_profit DESC
+LIMIT 10;
+
+
+-- =========================================================
+-- 14. MOST PROFITABLE CATEGORIES
+-- =========================================================
+
+SELECT
+    Category,
+    SUM(Profit) AS total_profit,
+    SUM(Sales) AS total_sales
+FROM orders
+GROUP BY Category
+ORDER BY total_profit DESC;
+
+
+-- =========================================================
+-- 15. PRODUCT RANKING WITHIN CATEGORY
+-- =========================================================
+
+SELECT
+    Category,
+    `Product Name`,
+    SUM(Sales) AS total_sales,
+    RANK() OVER (
+        PARTITION BY Category
+        ORDER BY SUM(Sales) DESC
+    ) AS product_rank
+FROM orders
+GROUP BY Category, `Product Name`;
+
+
+-- =========================================================
+-- 16. TOP 3 PRODUCTS PER CATEGORY
+-- =========================================================
+
+WITH ranked_products AS (
+    SELECT
+        Category,
+        `Product Name`,
+        SUM(Sales) AS total_sales,
+        RANK() OVER (
+            PARTITION BY Category
+            ORDER BY SUM(Sales) DESC
+        ) AS product_rank
+    FROM orders
+    GROUP BY Category, `Product Name`
+)
+SELECT
+    Category,
+    `Product Name`,
+    total_sales,
+    product_rank
+FROM ranked_products
+WHERE product_rank <= 3
+ORDER BY Category, product_rank;
+
+
+-- =========================================================
+-- 17. MONTHLY REVENUE GROWTH
+-- =========================================================
+
+WITH monthly_sales AS (
+    SELECT
+        DATE_FORMAT(`Order Date`, '%Y-%m') AS month,
+        SUM(Sales) AS revenue
+    FROM orders
+    GROUP BY DATE_FORMAT(`Order Date`, '%Y-%m')
+),
+monthly_growth AS (
+    SELECT
+        month,
+        revenue,
+        LAG(revenue) OVER (
+            ORDER BY month
+        ) AS previous_month_revenue
+    FROM monthly_sales
+)
+SELECT
+    month,
+    revenue,
+    previous_month_revenue,
+    ROUND(
+        (revenue - previous_month_revenue)
+        / previous_month_revenue * 100,
+        2
+    ) AS growth_pct
+FROM monthly_growth
+ORDER BY month;
+
+
+-- =========================================================
+-- 18. CUMULATIVE REVENUE
+-- =========================================================
+
+WITH monthly_sales AS (
+    SELECT
+        DATE_FORMAT(`Order Date`, '%Y-%m') AS month,
+        SUM(Sales) AS monthly_revenue
+    FROM orders
+    GROUP BY DATE_FORMAT(`Order Date`, '%Y-%m')
+)
+SELECT
+    month,
+    monthly_revenue,
+    SUM(monthly_revenue) OVER (
+        ORDER BY month
+    ) AS cumulative_revenue
+FROM monthly_sales
+ORDER BY month;
+
+
+-- =========================================================
+-- 19. CUSTOMER PREVIOUS ORDER
+-- =========================================================
+
+WITH customer_orders AS (
+    SELECT
+        `Customer ID`,
+        `Customer Name`,
+        `Order ID`,
+        MIN(`Order Date`) AS order_date,
+        SUM(Sales) AS order_sales
+    FROM orders
+    GROUP BY
+        `Customer ID`,
+        `Customer Name`,
+        `Order ID`
+)
+SELECT
+    `Customer ID`,
+    `Customer Name`,
+    `Order ID`,
+    order_date,
+    LAG(order_date) OVER (
+        PARTITION BY `Customer ID`
+        ORDER BY order_date
+    ) AS previous_order_date
+FROM customer_orders;
